@@ -204,7 +204,7 @@ h1 {
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
 .wr-sub { font-size: 13px; color: var(--text-dim); letter-spacing: 1px; margin-top: 8px; }
-.wr-games { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.wr-games { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 8px; }
 
 /* ── Recommendation cards ── */
 .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
@@ -227,13 +227,25 @@ h1 {
 .rec-icon  { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--border); object-fit: cover; }
 .rec-name { font-size: 14px; font-weight: 600; color: var(--gold-light); flex: 1; letter-spacing: 0.5px; }
 .rec-wr { font-size: 13px; font-weight: 700; color: var(--text); min-width: 44px; text-align: right; }
-.rec-games { font-size: 11px; color: var(--text-muted); min-width: 52px; text-align: right; }
+.rec-games { font-size: 11px; color: var(--text-muted); min-width: 72px; text-align: right; }
 .rec-delta { font-size: 12px; font-weight: 700; min-width: 52px; text-align: right; padding: 2px 6px; clip-path: var(--clip-btn); }
 .rec-delta.pos { color: var(--green); background: var(--green-dim); }
 .rec-delta.neg { color: var(--red); background: var(--red-dim); }
 .rec-delta.neu { color: var(--text-muted); }
 .bar-wrap { width: 100%; height: 2px; background: var(--border); margin-top: 4px; }
 .bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+
+/* ── Card controls ── */
+.card-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.card-control-group { display: flex; align-items: center; gap: 4px; }
+.card-control-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); margin-right: 2px; font-family: var(--font-head); }
+.mini-pill {
+  background: var(--card); border: 1px solid var(--border); color: var(--text-muted);
+  font-family: var(--font-body); font-size: 11px; font-weight: 600;
+  padding: 3px 8px; cursor: pointer; transition: all 0.15s;
+}
+.mini-pill:hover { border-color: var(--gold-dim); color: var(--text); }
+.mini-pill.active { background: var(--gold-glow); border-color: var(--gold); color: var(--gold-light); }
 
 /* ── Spinner & error ── */
 .spinner { text-align: center; padding: 40px; color: var(--text-muted); letter-spacing: 3px; font-size: 12px; text-transform: uppercase; }
@@ -247,6 +259,20 @@ h1 {
   background: rgba(200,64,64,0.08); border: 1px solid rgba(200,64,64,0.3);
   color: #E88; padding: 14px 18px; font-size: 13px; clip-path: var(--clip-card); margin-bottom: 24px;
 }
+
+/* ── Vs grid ── */
+#vs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#vs-grid::-webkit-scrollbar { width: 4px; }
+#vs-grid::-webkit-scrollbar-track { background: var(--surface); }
+#vs-grid::-webkit-scrollbar-thumb { background: var(--border-hi); }
+.champ-card-sm .champ-name { font-size: 9px; }
 
 /* ── Responsive ── */
 @media (max-width: 600px) {

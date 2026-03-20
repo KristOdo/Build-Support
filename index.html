@@ -11,9 +11,8 @@
 <div class="page">
 
   <header>
-    <p class="eyebrow">League of Legends</p>
-    <h1>Champion Recommender</h1>
-    <p class="subtitle">Win-probability builds by rank &amp; role</p>
+    <h1>Build Support</h1>
+    <p class="subtitle">Win-probability builds for League of Legends</p>
   </header>
 
   <div class="search-wrap">
@@ -29,7 +28,7 @@
       <img id="hero-portrait" src="" alt="" />
       <div>
         <p class="hero-name" id="hero-name"></p>
-        <p class="hero-sub">Optionally filter by role and rank</p>
+        <p class="hero-sub">Optionally filter by role, rank, and opponent</p>
       </div>
     </div>
 
@@ -56,6 +55,20 @@
           <button class="pill" data-val="DIAMOND">Diamond</button>
         </div>
       </div>
+    </div>
+
+    <div class="selector-group" style="margin-bottom:28px;">
+      <label>Opponent (vs)</label>
+      <div class="search-wrap" style="max-width:100%; margin-bottom:8px;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="vs-search" placeholder="Search opponent champion..." autocomplete="off" />
+      </div>
+      <div id="vs-selected-display" style="display:none; align-items:center; gap:10px; margin-bottom:8px;">
+        <img id="vs-selected-img" src="" style="width:32px;height:32px;border:1px solid var(--gold);border-radius:4px;" />
+        <span id="vs-selected-name" style="font-weight:600;color:var(--gold-light);font-size:14px;letter-spacing:1px;"></span>
+      </div>
+      <div id="vs-grid"></div>
+      <button class="pill" id="vs-clear" style="display:none; margin-top:6px;" onclick="clearVs()">✕ Clear</button>
     </div>
 
     <button id="get-btn" disabled>Get Recommendations</button>

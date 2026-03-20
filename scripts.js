@@ -1,8 +1,7 @@
-const API_BASE  = 'https://lol-recommender.onrender.com'; // update to your Render URL
+const API_BASE  = 'https://lol-recommender.onrender.com';
 const PATCH     = '16.5.1';
 const DDragon   = `https://ddragon.leagueoflegends.com/cdn/${PATCH}`;
 const TOP_K     = 5;
-const MIN_GAMES = 10;
 
 const CATEGORIES = [
   { key: 'keystone',     label: 'Keystone Rune',   type: 'rune' },
@@ -13,14 +12,27 @@ const CATEGORIES = [
   { key: 'item1',        label: 'First Item',      type: 'item' },
   { key: 'item2',        label: 'Second Item',     type: 'item' },
   { key: 'item3',        label: 'Third Item',      type: 'item' },
-  { key: 'item4',        label: 'Fourth+ Item',    type: 'item' },
 ];
 
-let allChampions = [];
-let selected     = { champion: null, championId: null, role: null, rank: null };
-let selectedBuild = {}; // { keystone: '8437', boots: '3047', ... } — chosen rec rows
-let runeIconMap  = {};
-let summImgMap   = {};
+let allChampions  = [];
+let selected      = { champion: null, championId: null, role: null, rank: null, vs: null };
+let selectedBuild = {};
+let runeIconMap   = {};
+let summImgMap    = {};
+
+const cardSettings = {};
+function getCardSettings(key) {
+  if (!cardSettings[key]) cardSettings[key] = { sortBy: 'winrate', minGames: 10 };
+  return cardSettings[key];
+}
+function setCardSort(key, val) {
+  getCardSettings(key).sortBy = val;
+  fetchAndRender();
+}
+function setCardMin(key, val) {
+  getCardSettings(key).minGames = val;
+  fetchAndRender();
+}
 
 // ── Load rune icons ───────────────────────────────────────────────────────────
 async function loadRuneIcons() {
@@ -49,18 +61,15 @@ async function loadSummIcons() {
   } catch (e) { console.warn('Could not load summoner spell icons'); }
 }
 
-// ── ID normalisation — float IDs from backend must be int strings ─────────────
+// ── ID normalisation ──────────────────────────────────────────────────────────
 function normaliseId(rawId) {
-  // e.g. "3078.0" → "3078", "8437" → "8437"
   return String(Math.round(parseFloat(rawId)));
 }
 
 // ── Image helpers ─────────────────────────────────────────────────────────────
 function resolveImages(type, rawId) {
   const id = normaliseId(rawId);
-  if (type === 'item') {
-    return `<img src="${DDragon}/img/item/${id}.png" class="rec-icon" alt="" />`;
-  }
+  if (type === 'item') return `<img src="${DDragon}/img/item/${id}.png" class="rec-icon" alt="" />`;
   if (type === 'rune') {
     const url = runeIconMap[parseInt(id)];
     return url ? `<img src="${url}" class="rec-icon" alt="" />` : '';
@@ -80,9 +89,7 @@ function resolveName(type, rawId) {
   const { runes, items, summs } = CONVERSION.numToName;
   if (type === 'rune') return runes[String(id)] ?? id;
   if (type === 'item') return items[id] ?? id;
-  if (type === 'summ') {
-    return rawId.split('/').map(s => summs[s.trim()] ?? s).join(', ');
-  }
+  if (type === 'summ') return rawId.split('/').map(s => summs[s.trim()] ?? s).join(', ');
   return id;
 }
 
@@ -120,19 +127,72 @@ function renderGrid(champs) {
   `).join('');
 }
 
+function renderVsGrid(champs) {
+  document.getElementById('vs-grid').innerHTML = champs.slice(0, 30).map(c => `
+    <div class="champ-card champ-card-sm${selected.vs === c.name ? ' selected' : ''}"
+         data-name="${c.name}" data-id="${c.id}" onclick="selectVs(this)">
+      <img src="${DDragon}/img/champion/${c.id}.png" alt="${c.name}" loading="lazy" />
+      <p class="champ-name">${c.name}</p>
+    </div>
+  `).join('');
+}
+
+function selectVs(el) {
+  selected.vs = el.dataset.name;
+  document.getElementById('vs-search').style.display    = 'none';
+  document.getElementById('vs-selected-display').style.display = 'flex';
+  document.getElementById('vs-selected-img').src        = `${DDragon}/img/champion/${el.dataset.id}.png`;
+  document.getElementById('vs-selected-name').textContent = el.dataset.name;
+  document.getElementById('vs-clear').style.display     = 'inline-block';
+  renderVsGrid([]);
+}
+
+function clearVs() {
+  selected.vs = null;
+  document.getElementById('vs-search').style.display    = 'block';
+  document.getElementById('vs-search').value            = '';
+  document.getElementById('vs-selected-display').style.display = 'none';
+  document.getElementById('vs-clear').style.display     = 'none';
+  renderVsGrid([]);
+}
+
+function selectVsFromRow(name) {
+  const champ = allChampions.find(c => c.name === name);
+  if (!champ) return;
+  selected.vs = name;
+  document.getElementById('vs-search').style.display    = 'none';
+  document.getElementById('vs-selected-display').style.display = 'flex';
+  document.getElementById('vs-selected-img').src        = `${DDragon}/img/champion/${champ.id}.png`;
+  document.getElementById('vs-selected-name').textContent = name;
+  document.getElementById('vs-clear').style.display     = 'inline-block';
+  fetchAndRender();
+}
+
 document.getElementById('search').addEventListener('input', e => {
   const q = e.target.value.toLowerCase();
   renderGrid(q ? allChampions.filter(c => c.name.toLowerCase().includes(q)) : allChampions);
 });
 
+document.getElementById('vs-search').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  renderVsGrid(q ? allChampions.filter(c => c.name.toLowerCase().includes(q)) : []);
+});
+
+// delegated listener for matchup rows (avoids inline onclick with special chars)
+document.getElementById('results-inner').addEventListener('click', e => {
+  const row = e.target.closest('[data-vs-name]');
+  if (!row) return;
+  selectVsFromRow(row.dataset.vsName);
+});
+
 function selectChampion(el) {
   selected.championId = el.dataset.id;
   selected.champion   = el.dataset.name;
-  selectedBuild       = {}; // reset build choices when champion changes
+  selectedBuild       = {};
   document.querySelectorAll('.champ-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
-  document.getElementById('hero-portrait').src = `${DDragon}/img/champion/${selected.championId}.png`;
-  document.getElementById('hero-name').textContent = selected.champion;
+  document.getElementById('hero-portrait').src        = `${DDragon}/img/champion/${selected.championId}.png`;
+  document.getElementById('hero-name').textContent    = selected.champion;
   document.getElementById('config-panel').classList.add('visible');
   document.getElementById('results').classList.remove('visible');
   document.getElementById('config-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -157,13 +217,14 @@ function makePillGroup(groupId, key) {
 makePillGroup('role-group', 'role');
 makePillGroup('rank-group', 'rank');
 
-// ── Build params — includes role, rank, AND any chosen build options ──────────
+// ── Build params ──────────────────────────────────────────────────────────────
 function buildParams(extra = {}, buildOverride = selectedBuild) {
   const raw = {
     champ: selected.champion,
     role:  selected.role,
     tier:  selected.rank,
-    ...buildOverride,  
+    vs:    selected.vs,
+    ...buildOverride,
     ...extra
   };
   const p = new URLSearchParams();
@@ -182,14 +243,13 @@ async function fetchWinrate() {
 }
 
 async function fetchTop(key) {
-  // exclude this key from params so it isn't double-filtered against itself
-  const { [key]: _, ...buildWithoutKey } = selectedBuild; // exclude current key
-  const params = buildParams({ key, k: TOP_K, min_games: MIN_GAMES }, buildWithoutKey);
+  const { [key]: _, ...buildWithoutKey } = selectedBuild;
+  const { minGames: mg } = getCardSettings(key);
+  const params = buildParams({ key, k: TOP_K, min_games: mg }, buildWithoutKey);
   const res    = await fetch(`${API_BASE}/top?${params}`);
   const data   = await res.json();
   if (data.error) throw new Error(data.error);
 
-  // normalise summs so "4/14" and "14/4" are the same
   const normalised = {};
   for (const [rawId, stats] of Object.entries(data)) {
     const normKey = key === 'summs' ? rawId : normaliseId(rawId);
@@ -201,7 +261,18 @@ async function fetchTop(key) {
     .sort((a, b) => b.winrate - a.winrate);
 }
 
-// ── Fetch and render everything ───────────────────────────────────────────────
+async function fetchMatchups() {
+  const { minGames: mg } = getCardSettings('vs');
+  const params = buildParams({ key: 'vs', k: 50, min_games: mg });
+  const res    = await fetch(`${API_BASE}/top?${params}`);
+  const data   = await res.json();
+  if (data.error) return { best: [], worst: [] };
+  const rows = Object.entries(data)
+    .map(([name, stats]) => ({ name, ...stats }))
+    .sort((a, b) => b.winrate - a.winrate);
+  return { best: rows.slice(0, 5), worst: rows.slice(-5).reverse() };
+}
+
 async function fetchAndRender() {
   if (!selected.champion) return;
   const inner = document.getElementById('results-inner');
@@ -209,18 +280,19 @@ async function fetchAndRender() {
   inner.innerHTML = '<div class="spinner">Calculating win probabilities</div>';
 
   try {
-    const [base, ...topResults] = await Promise.all([
+    const [base, matchups, ...topResults] = await Promise.all([
       fetchWinrate(),
+      fetchMatchups(),
       ...CATEGORIES.map(cat => fetchTop(cat.key))
     ]);
-    renderResults(base, topResults);
+    renderResults(base, matchups, topResults);
   } catch (e) {
     inner.innerHTML = `<div class="error-msg">Error: ${e.message}</div>`;
   }
 }
 
 document.getElementById('get-btn').addEventListener('click', () => {
-  selectedBuild = {}; // reset build when clicking Get Recommendations fresh
+  selectedBuild = {};
   document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
   fetchAndRender();
 });
@@ -236,12 +308,79 @@ function toggleBuildChoice(key, rawId) {
   fetchAndRender();
 }
 
+// ── Card controls HTML helper ─────────────────────────────────────────────────
+function cardControlsHtml(key) {
+  const { sortBy: cs, minGames: cm } = getCardSettings(key);
+  return `
+    <div class="card-controls">
+      <div class="card-control-group">
+        <span class="card-control-label">Sort</span>
+        <button class="mini-pill${cs === 'winrate' ? ' active' : ''}" onclick="setCardSort('${key}', 'winrate')">WR</button>
+        <button class="mini-pill${cs === 'games'   ? ' active' : ''}" onclick="setCardSort('${key}', 'games')">Games</button>
+      </div>
+      <div class="card-control-group">
+        <span class="card-control-label">Min</span>
+        ${[5,10,25,50,100].map(n =>
+          `<button class="mini-pill${cm === n ? ' active' : ''}" onclick="setCardMin('${key}', ${n})">${n}</button>`
+        ).join('')}
+      </div>
+    </div>`;
+}
+
+// ── Render matchups ───────────────────────────────────────────────────────────
+function renderMatchups(matchups, baseWr) {
+  if (!matchups.best.length && !matchups.worst.length) return '';
+
+  const { sortBy: vs } = getCardSettings('vs');
+  const sortedBest  = [...matchups.best].sort((a, b) =>
+    vs === 'games' ? b.games - a.games : b.winrate - a.winrate);
+  const sortedWorst = [...matchups.worst].sort((a, b) =>
+    vs === 'games' ? b.games - a.games : b.winrate - a.winrate);
+
+  const makeRow = (row, i) => {
+    const champ = allChampions.find(c => c.name === row.name);
+    const img   = champ ? `<img src="${DDragon}/img/champion/${champ.id}.png" class="rec-icon" alt="" />` : '';
+    const wr    = row.winrate * 100;
+    const delta = wr - baseWr;
+    const dCls  = delta > 0.5 ? 'pos' : delta < -0.5 ? 'neg' : 'neu';
+    const dStr  = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
+    // use data attribute to safely handle special champion names
+    return `
+      <div class="rec-row" data-vs-name="${row.name.replace(/"/g, '&quot;')}">
+        <span class="rec-rank">${i}</span>
+        <div class="rec-icons">${img}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="rec-name">${row.name}</span>
+            <span class="rec-games">${row.wins}/${row.games} games</span>
+            <span class="rec-wr">${wr.toFixed(1)}%</span>
+            <span class="rec-delta ${dCls}">${dStr}</span>
+          </div>
+        </div>
+      </div>`;
+  };
+
+  return `
+    <div class="rec-grid" style="margin-bottom:24px;">
+      <div class="rec-card">
+        <p class="rec-title">Best matchups</p>
+        ${cardControlsHtml('vs')}
+        ${sortedBest.map((r, i) => makeRow(r, i + 1)).join('')}
+      </div>
+      <div class="rec-card">
+        <p class="rec-title">Worst matchups</p>
+        ${sortedWorst.map((r, i) => makeRow(r, i + 1)).join('')}
+      </div>
+    </div>`;
+}
+
 // ── Render results ────────────────────────────────────────────────────────────
-function renderResults(base, topResults) {
+function renderResults(base, matchups, topResults) {
   const inner   = document.getElementById('results-inner');
   const filters = [selected.champion];
   if (selected.role) filters.push(selected.role);
   if (selected.rank) filters.push(selected.rank);
+  if (selected.vs)   filters.push(`vs ${selected.vs}`);
 
   let heroHtml;
   if (base.games === 0) {
@@ -258,7 +397,7 @@ function renderResults(base, topResults) {
         <p class="wr-label">${filters.join(' &middot; ')}</p>
         <p class="wr-number">${baseWr.toFixed(1)}<span style="font-size:0.45em;opacity:0.6">%</span></p>
         <p class="wr-sub">Overall win rate with current filters</p>
-        <p class="wr-games">${base.games.toLocaleString()} games &middot; ${base.wins.toLocaleString()} wins</p>
+        <p class="wr-games">${base.wins} / ${base.games} games</p>
       </div>`;
   }
 
@@ -270,17 +409,22 @@ function renderResults(base, topResults) {
 
     const maxWr    = Math.max(...rows.map(r => r.winrate));
     const chosenId = selectedBuild[key] ?? null;
+    const { sortBy: cs } = getCardSettings(key);
 
-    const rowsHtml = rows.map((row, i) => {
-      const normId = key === 'summs' ? row.rawId : normaliseId(row.rawId);      
+    const sortedRows = [...rows].sort((a, b) =>
+      cs === 'games' ? b.games - a.games : b.winrate - a.winrate
+    );
+
+    const rowsHtml = sortedRows.map((row, i) => {
+      const normId   = key === 'summs' ? row.rawId : normaliseId(row.rawId);
       const isChosen = normId === chosenId;
-      const wr      = row.winrate * 100;
-      const delta   = wr - baseWr;
-      const dCls    = delta > 0.5 ? 'pos' : delta < -0.5 ? 'neg' : 'neu';
-      const dStr    = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
-      const barPct  = (row.winrate / maxWr * 100).toFixed(1);
-      const imgs    = resolveImages(type, row.rawId);
-      const name    = resolveName(type, row.rawId);
+      const wr       = row.winrate * 100;
+      const delta    = wr - baseWr;
+      const dCls     = delta > 0.5 ? 'pos' : delta < -0.5 ? 'neg' : 'neu';
+      const dStr     = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
+      const barPct   = (row.winrate / maxWr * 100).toFixed(1);
+      const imgs     = resolveImages(type, row.rawId);
+      const name     = resolveName(type, row.rawId);
       return `
         <div class="rec-row${isChosen ? ' chosen' : ''}" onclick="toggleBuildChoice('${key}', '${row.rawId}')">
           <span class="rec-rank">${i + 1}</span>
@@ -288,7 +432,7 @@ function renderResults(base, topResults) {
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:8px;">
               <span class="rec-name">${name}</span>
-              <span class="rec-games">${row.games.toLocaleString()}g</span>
+              <span class="rec-games">${row.wins}/${row.games} games</span>
               <span class="rec-wr">${wr.toFixed(1)}%</span>
               <span class="rec-delta ${dCls}">${dStr}</span>
             </div>
@@ -300,11 +444,14 @@ function renderResults(base, topResults) {
     return `
       <div class="rec-card${chosenId ? ' has-choice' : ''}" style="animation-delay:${ci * 60}ms">
         <p class="rec-title">${label}${chosenId ? ' <span class="chosen-badge">selected</span>' : ''}</p>
+        ${cardControlsHtml(key)}
         ${rowsHtml}
       </div>`;
   }).join('');
 
-  inner.innerHTML = heroHtml + `<div class="rec-grid">${cards}</div>`;
+  // hide matchups when a vs is already selected — they become irrelevant
+  const matchupsHtml = selected.vs ? '' : renderMatchups(matchups, baseWr);
+  inner.innerHTML = heroHtml + matchupsHtml + `<div class="rec-grid">${cards}</div>`;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
