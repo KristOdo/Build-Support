@@ -266,15 +266,37 @@ async function fetchTop(key) {
 }
 
 async function fetchMatchups() {
-  const { minGames: mg } = getCardSettings('vs');
-  const params = buildParams({ key: 'vs', k: 50, min_games: mg });
-  const res    = await fetch(`${API_BASE}/top?${params}`);
-  const data   = await res.json();
-  if (data.error) return { best: [], worst: [] };
-  const rows = Object.entries(data)
-    .map(([name, stats]) => ({ name, ...stats }))
-    .sort((a, b) => b.winrate - a.winrate);
-  return { best: rows.slice(0, 5), worst: rows.slice(-5).reverse() };
+  const { minGames: mg_best } = getCardSettings('vs_best');
+  const params_b = buildParams({ key: 'vs', k: 5, min_games: mg_best });
+  const res_b    = await fetch(`${API_BASE}/top?${params_b}`);
+  const data_b   = await res_b.json();
+
+  let best_rows = [];
+  let worst_rows = [];
+  
+  if (data_b.error) {
+    best_rows = [];
+  } else {
+    const rows_b = Object.entries(data_b)
+      .map(([name, stats]) => ({ name, ...stats }))
+      .sort((a, b) => b.winrate - a.winrate);
+    best_rows = rows_b.slice(0, 5);
+  }
+
+  const { minGames: mg_worst } = getCardSettings('vs_worst');
+  const params_w = buildParams({ key: 'vs', k: 180, min_games: mg_worst });
+  const res_w    = await fetch(`${API_BASE}/top?${params_w}`);
+  const data_w   = await res_w.json();
+  if (data_w.error) {
+    worst_rows = [];
+  } else {
+    const rows_w = Object.entries(data_w)
+      .map(([name, stats]) => ({ name, ...stats }))
+      .sort((a, b) => b.winrate - a.winrate);
+    worst_rows = rows_w.slice(-5);
+  }
+  
+  return { best: best_rows, worst: worst_rows };
 }
 
 async function fetchAndRender() {
@@ -315,31 +337,41 @@ function toggleBuildChoice(key, rawId) {
 // ── Card controls HTML helper ─────────────────────────────────────────────────
 function cardControlsHtml(key) {
   const { sortBy: cs, minGames: cm } = getCardSettings(key);
-  return `
-    <div class="card-controls">
-      <div class="card-control-group">
-        <span class="card-control-label">Sort</span>
-        <button class="mini-pill${cs === 'winrate' ? ' active' : ''}" onclick="setCardSort('${key}', 'winrate')">WR</button>
-        <button class="mini-pill${cs === 'games'   ? ' active' : ''}" onclick="setCardSort('${key}', 'games')">Games</button>
-      </div>
-      <div class="card-control-group">
-        <span class="card-control-label">Min</span>
-        ${[5,10,25,50,100].map(n =>
-          `<button class="mini-pill${cm === n ? ' active' : ''}" onclick="setCardMin('${key}', ${n})">${n}</button>`
-        ).join('')}
-      </div>
-    </div>`;
+  if (key == "vs_best" || key == "vs_worst") {
+    return `
+      <div class="card-controls">
+        <div class="card-control-group">
+          <span class="card-control-label">Min</span>
+          ${[5,10,25,50,100].map(n =>
+            `<button class="mini-pill${cm === n ? ' active' : ''}" onclick="setCardMin('${key}', ${n})">${n}</button>`
+          ).join('')}
+        </div>
+      </div>`;
+  } else {
+    return `
+      <div class="card-controls">
+        <div class="card-control-group">
+          <span class="card-control-label">Sort</span>
+          <button class="mini-pill${cs === 'winrate' ? ' active' : ''}" onclick="setCardSort('${key}', 'winrate')">WR</button>
+          <button class="mini-pill${cs === 'games'   ? ' active' : ''}" onclick="setCardSort('${key}', 'games')">Games</button>
+        </div>
+        <div class="card-control-group">
+          <span class="card-control-label">Min</span>
+          ${[5,10,25,50,100].map(n =>
+            `<button class="mini-pill${cm === n ? ' active' : ''}" onclick="setCardMin('${key}', ${n})">${n}</button>`
+          ).join('')}
+        </div>
+      </div>`;
+  }
 }
 
 // ── Render matchups ───────────────────────────────────────────────────────────
 function renderMatchups(matchups, baseWr) {
   if (!matchups.best.length && !matchups.worst.length) return '';
 
-  const { sortBy: vs } = getCardSettings('vs');
-  const sortedBest  = [...matchups.best].sort((a, b) =>
-    vs === 'games' ? b.games - a.games : b.winrate - a.winrate);
-  const sortedWorst = [...matchups.worst].sort((a, b) =>
-    vs === 'games' ? b.games - a.games : b.winrate - a.winrate);
+  // always sort matchups by winrate
+  const sortedBest  = [...matchups.best].sort((a, b) => b.winrate - a.winrate);
+  const sortedWorst = [...matchups.worst].sort((a, b) => a.winrate - b.winrate);
 
   const makeRow = (row, i) => {
     const champ = allChampions.find(c => c.id === row.name);
@@ -369,11 +401,12 @@ function renderMatchups(matchups, baseWr) {
     <div class="rec-grid" style="margin-bottom:24px;">
       <div class="rec-card">
         <p class="rec-title">Best matchups</p>
-        ${cardControlsHtml('vs')}
+        ${cardControlsHtml('vs_best')}
         ${sortedBest.map((r, i) => makeRow(r, i + 1)).join('')}
       </div>
       <div class="rec-card">
         <p class="rec-title">Worst matchups</p>
+        ${cardControlsHtml('vs_worst')}
         ${sortedWorst.map((r, i) => makeRow(r, i + 1)).join('')}
       </div>
     </div>`;
