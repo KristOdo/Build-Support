@@ -247,6 +247,18 @@ h1 {
 .mini-pill:hover { border-color: var(--gold-dim); color: var(--text); }
 .mini-pill.active { background: var(--gold-glow); border-color: var(--gold); color: var(--gold-light); }
 
+/* ── Global controls bar ── */
+.global-controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+  background: var(--surface); border: 1px solid var(--gold-dim);
+  clip-path: var(--clip-card); padding: 14px 20px; margin-bottom: 20px;
+}
+.global-controls-label {
+  font-family: var(--font-head); font-size: 11px; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--gold); margin-right: 4px;
+  white-space: nowrap;
+}
+
 /* ── Spinner & error ── */
 .spinner { text-align: center; padding: 40px; color: var(--text-muted); letter-spacing: 3px; font-size: 12px; text-transform: uppercase; }
 .spinner::before {

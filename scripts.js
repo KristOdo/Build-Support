@@ -35,6 +35,20 @@ function setCardMin(key, val) {
   fetchAndRender();
 }
 
+let globalCardSettings = { sortBy: 'winrate', minGames: 10 };
+function setAllSort(val) {
+  globalCardSettings.sortBy = val;
+  CATEGORIES.forEach(({ key }) => { getCardSettings(key).sortBy = val; });
+  fetchAndRender();
+}
+function setAllMin(val) {
+  globalCardSettings.minGames = val;
+  CATEGORIES.forEach(({ key }) => { getCardSettings(key).minGames = val; });
+  getCardSettings("vs_best").minGames = val;
+  getCardSettings("vs_worst").minGames = val;
+  fetchAndRender();
+}
+
 // ── Load rune icons ───────────────────────────────────────────────────────────
 async function loadRuneIcons() {
   try {
@@ -334,6 +348,26 @@ function toggleBuildChoice(key, rawId) {
   fetchAndRender();
 }
 
+// ── Global Card controls HTML helper ─────────────────────────────────────────────────
+function globalControlsHtml() {
+  const { sortBy: gs, minGames: gm } = globalCardSettings;
+  return `
+    <div class="global-controls">
+      <span class="global-controls-label">All Sections</span>
+      <div class="card-control-group">
+        <span class="card-control-label">Sort</span>
+        <button class="mini-pill${gs === 'winrate' ? ' active' : ''}" onclick="setAllSort('winrate')">WR</button>
+        <button class="mini-pill${gs === 'games'   ? ' active' : ''}" onclick="setAllSort('games')">Games</button>
+      </div>
+      <div class="card-control-group">
+        <span class="card-control-label">Min Games</span>
+        ${[5,10,25,50,100].map(n =>
+          `<button class="mini-pill${gm === n ? ' active' : ''}" onclick="setAllMin(${n})">${n}</button>`
+        ).join('')}
+      </div>
+    </div>`;
+}
+
 // ── Card controls HTML helper ─────────────────────────────────────────────────
 function cardControlsHtml(key) {
   const { sortBy: cs, minGames: cm } = getCardSettings(key);
@@ -487,9 +521,10 @@ function renderResults(base, matchups, topResults) {
       </div>`;
   }).join('');
 
+  const globalControls = globalControlsHtml();
   // hide matchups when a vs is already selected — they become irrelevant
   const matchupsHtml = selected.vs ? '' : renderMatchups(matchups, baseWr);
-  inner.innerHTML = heroHtml + matchupsHtml + `<div class="rec-grid">${cards}</div>`;
+  inner.innerHTML = heroHtml + globalControls + matchupsHtml + `<div class="rec-grid">${cards}</div>`;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
