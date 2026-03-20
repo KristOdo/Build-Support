@@ -1,2 +1,2 @@
-# LoL-Recommender-Web
+# Build-Support
 Build recommender for League of Legends
